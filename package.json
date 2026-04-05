@@ -1,0 +1,11 @@
+{
+  "name": "kalkulationstool",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "lint": "node --check src/domain/number.js && node --check test/domain/number.test.js",
+    "test": "node --test",
+    "check": "npm run lint && npm run test"
+  }
+}

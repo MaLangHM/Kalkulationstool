@@ -3719,10 +3719,20 @@ const CONFIG = Object.freeze({
   // -------------------------
   // Stammdaten UI (Excel-ähnlich)
   // -------------------------
-  const StammdatenUI = (function(){
-    const $ = (sel, root=document) => root.querySelector(sel);
+    const StammdatenUI = (function(){
+      const $ = (sel, root=document) => root.querySelector(sel);
 
-    function normVal(v){ return String(v ?? '').trim(); }
+      function normVal(v){ return String(v ?? '').trim(); }
+      function isSafeIsoKey(k){
+        const key = normVal(k);
+        if(!key) return false;
+        return key !== '__proto__' && key !== 'prototype' && key !== 'constructor';
+      }
+      function hasIsoGroup(k){
+        const key = normVal(k);
+        if(!isSafeIsoKey(key)) return false;
+        return Object.prototype.hasOwnProperty.call(ISO_OPTIONS || {}, key);
+      }
 
     function move(arr, from, to){
       if(!Array.isArray(arr)) return;
@@ -3762,11 +3772,11 @@ const CONFIG = Object.freeze({
       try{ return Object.keys(ISO_OPTIONS || {}); }catch(_){ return []; }
     }
 
-    function rebuildIsoOrder(nextGroups){
-      const next = {};
-      (nextGroups || []).forEach(g => {
-        if(g in ISO_OPTIONS) next[g] = (ISO_OPTIONS[g] || []).slice();
-      });
+      function rebuildIsoOrder(nextGroups){
+        const next = {};
+        (nextGroups || []).forEach(g => {
+          if(hasIsoGroup(g)) next[g] = (ISO_OPTIONS[g] || []).slice();
+        });
       // apply
       Object.keys(ISO_OPTIONS).forEach(k => { if(!(k in next)) delete ISO_OPTIONS[k]; });
       Object.keys(next).forEach(k => { ISO_OPTIONS[k] = next[k].slice(); });
@@ -3881,7 +3891,7 @@ const CONFIG = Object.freeze({
       try{ renderDensityMasterData(); }catch(_){/* no-op */}
     }
 
-    function addRow(key){
+      function addRow(key){
       if(key === 'mat_art'){ CHIPS.art.push(''); }
       if(key === 'mat_gruppe'){ CHIPS.gruppe.push(''); }
       if(key === 'mat_typ'){ CHIPS.typ.push(''); }
@@ -3890,13 +3900,13 @@ const CONFIG = Object.freeze({
       if(key === 'pp_maschine'){ data.ppInternCatalog.maschine.push(''); }
       if(key === 'pp_geo'){ data.ppInternCatalog.geo.push(''); }
 
-      if(key === 'mat_iso_group'){
-        const base = 'Neue Gruppe';
-        let name = base;
-        let i = 1;
-        while(name in (ISO_OPTIONS||{})) { i += 1; name = `${base} ${i}`; }
-        if(!ISO_OPTIONS[name]) ISO_OPTIONS[name] = [];
-      }
+        if(key === 'mat_iso_group'){
+          const base = 'Neue Gruppe';
+          let name = base;
+          let i = 1;
+          while(hasIsoGroup(name)) { i += 1; name = `${base} ${i}`; }
+          if(isSafeIsoKey(name) && !hasIsoGroup(name)) ISO_OPTIONS[name] = [];
+        }
 
       if(key === 'ff_pair'){
         try{
@@ -4055,11 +4065,16 @@ const CONFIG = Object.freeze({
             // Leer: erst bei Blur bereinigen (keine sofortige Strukturzerstörung)
             return;
           }
+          if(!isSafeIsoKey(gNew)){
+            toast('ISO: Ungültiger Abschnittsname (reservierter Schlüssel).');
+            inp.value = gOld;
+            return;
+          }
           if(gNew === gOld) return;
 
           // rename / merge if target exists
           const oldArr = Array.isArray(ISO_OPTIONS[gOld]) ? ISO_OPTIONS[gOld].slice() : [];
-          if(gNew in (ISO_OPTIONS||{})){
+          if(hasIsoGroup(gNew)){
             // merge
             const merged = (ISO_OPTIONS[gNew] || []).slice().concat(oldArr);
             ISO_OPTIONS[gNew] = merged.filter(x => normVal(x));
